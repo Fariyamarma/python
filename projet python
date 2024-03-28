@@ -1,0 +1,86 @@
+import numpy as np
+from scipy.stats import norm
+
+class OptionPricing:
+    def __init__(self, volatility, strike_price, spot_price, time_to_maturity):
+        self.volatility = volatility
+        self.strike_price = strike_price
+        self.spot_price = spot_price
+        self.time_to_maturity = time_to_maturity
+        self.risk_free_rate = 0.0  # Taux sans risque considéré comme étant de 0%
+
+    def black_scholes(self, option_type):
+       
+        Calcule le prix d'une option en utilisant la formule de Black-Scholes.
+
+        Arguments :
+        - option_type (str) : Type d'option, 'call' pour une option d'achat, 'put' pour une option de vente.
+
+        Retourne :
+        - option_price (float) : Prix de l'option calculé avec la formule de Black-Scholes.
+        
+        d1 = (np.log(self.spot_price / self.strike_price) + (self.risk_free_rate + 0.5 * self.volatility ** 2) * self.time_to_maturity) / (self.volatility * np.sqrt(self.time_to_maturity))
+        d2 = d1 - self.volatility * np.sqrt(self.time_to_maturity)
+
+        if option_type == 'call':
+            option_price = self.spot_price * norm.cdf(d1) - self.strike_price * np.exp(-self.risk_free_rate * self.time_to_maturity) * norm.cdf(d2)
+        elif option_type == 'put':
+            option_price = self.strike_price * np.exp(-self.risk_free_rate * self.time_to_maturity) * norm.cdf(-d2) - self.spot_price * norm.cdf(-d1)
+        else:
+            raise ValueError("Option type must be either 'call' or 'put'.")
+
+        return option_price
+
+    def monte_carlo_simulation(self, num_simulations, option_type):
+        
+        Effectue une simulation de Monte Carlo pour analyser différents scénarios de marché.
+
+        Arguments :
+        - num_simulations (int) : Nombre de simulations à effectuer.
+        - option_type (str) : Type d'option, 'call' pour une option d'achat, 'put' pour une option de vente.
+
+        Retourne :
+        - simulated_prices (np.array) : Tableau des prix de l'option simulés.
+       
+        # Génère des nombres aléatoires suivant une loi normale centrée réduite
+        random_numbers = np.random.standard_normal(num_simulations)
+
+        # Calcule les prix simulés de l'actif sous-jacent à l'échéance
+        simulated_spot_prices = self.spot_price * np.exp((self.risk_free_rate - 0.5 * self.volatility ** 2) * self.time_to_maturity + self.volatility * np.sqrt(self.time_to_maturity) * random_numbers)
+
+        # Calcule les gains de l'option pour chaque simulation
+        if option_type == 'call':
+            option_payoffs = np.maximum(simulated_spot_prices - self.strike_price, 0)
+        elif option_type == 'put':
+            option_payoffs = np.maximum(self.strike_price - simulated_spot_prices, 0)
+        else:
+            raise ValueError("Option type must be either 'call' or 'put'.")
+
+        # Calcule la moyenne des gains actualisés pour obtenir le prix de l'option
+        simulated_prices = np.exp(-self.risk_free_rate * self.time_to_maturity) * np.mean(option_payoffs)
+
+        return simulated_prices
+
+
+# Exemple d'utilisation
+volatility = 0.2
+strike_price = 100
+spot_price = 100
+time_to_maturity = 1
+
+option = OptionPricing(volatility, strike_price, spot_price, time_to_maturity)
+
+# Prix de l'option calculé avec la formule de Black-Scholes
+call_price_bs = option.black_scholes('call')
+put_price_bs = option.black_scholes('put')
+
+print(f"Prix de l'option d'achat (Black-Scholes) : {call_price_bs:.2f}")
+print(f"Prix de l'option de vente (Black-Scholes) : {put_price_bs:.2f}")
+
+# Prix de l'option calculé avec une simulation de Monte Carlo
+num_simulations = 100000
+call_price_mc = option.monte_carlo_simulation(num_simulations, 'call')
+put_price_mc = option.monte_carlo_simulation(num_simulations, 'put')
+
+print(f"Prix de l'option d'achat (Monte Carlo) : {call_price_mc:.2f}")
+print(f"Prix de l'option de vente (Monte Carlo) : {put_price_mc:.2f}")
